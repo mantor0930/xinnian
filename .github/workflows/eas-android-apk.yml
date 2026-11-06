@@ -1,0 +1,55 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-apk:
+    name: Build Android preview APK on EAS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo project files
+        shell: bash
+        run: |
+          if [ ! -f package.json ]; then
+            echo "ERROR: package.json is missing. Initialize the Expo app before triggering EAS Build."
+            exit 1
+          fi
+          if [ ! -f app.json ] && [ ! -f app.config.js ] && [ ! -f app.config.ts ]; then
+            echo "ERROR: Expo app config is missing. Add app.json or app.config.* before triggering EAS Build."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Expo config
+        run: npx expo config --type public
+
+      - name: Trigger EAS Android APK build
+        run: eas build --platform android --profile preview --non-interactive --no-wait
